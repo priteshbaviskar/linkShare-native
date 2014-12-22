@@ -1,0 +1,17 @@
+<resources>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="android:Theme.Material.Light">
+        <!-- Customize your theme here. -->
+        <item name="android:statusBarColor">#ffc00416</item>
+        <item name="android:colorPrimary">#ffc13743</item>
+        <item name="android:textColorPrimary">#ffffff</item>
+
+        <item name="android:windowContentTransitions">true</item>
+
+        <!-- specify enter and exit transitions -->
+
+
+    </style>
+
+</resources>
