@@ -47,16 +47,24 @@ public class MainActivity extends Activity {
         mCardTouchListener = new CardTouchListener();
         myCardView.setOnTouchListener(mCardTouchListener);
 
+        if(checkIfDeviceHasCamera(this.getApplicationContext())) {
+
+            mCamera =  getCameraInstance();
+            mCameraview = new CameraView(this, mCamera);
+            mCameraview.setVisibility(View.INVISIBLE);
+            myCardView.addView(mCameraview);
+
+
+        }
+
     }
 
     private void startCamera() {
-
 
         if(checkIfDeviceHasCamera(this.getApplicationContext())) {
 
             mCamera =  getCameraInstance();
             mCameraview = new CameraView(this, mCamera);
-
             myCardView.addView(mCameraview);
         }
     }
@@ -113,7 +121,7 @@ public class MainActivity extends Activity {
     class CardTouchListener implements View.OnTouchListener {
 
         @Override
-        public boolean onTouch(final View myCardView, MotionEvent event) {
+        public boolean onTouch(final View myCardV, MotionEvent event) {
 
             int  cx = (myCardView.getLeft() + myCardView.getRight() ) / 2;
             int  cy = (myCardView.getTop() + myCardView.getBottom() ) / 2;
@@ -123,14 +131,16 @@ public class MainActivity extends Activity {
             Animator anim = ViewAnimationUtils.createCircularReveal(myCardView,cx,cy,0,finalRadius);
 
             anim.start();
-            myCardView.setBackgroundColor(Color.RED);
+            myCardV.setBackgroundColor(Color.RED);
+
             anim.addListener(new AnimatorListenerAdapter() {
 
 
                 @Override
                 public void onAnimationEnd(Animator animation) {
                     super.onAnimationEnd(animation);
-                    startCamera();
+                    //startCamera();
+                    mCameraview.setVisibility(View.VISIBLE);
                 }
             });
 
