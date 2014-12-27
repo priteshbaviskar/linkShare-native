@@ -4,11 +4,14 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
-import android.graphics.Color;
 import android.hardware.Camera;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.support.v7.widget.CardView;
 import android.transition.Explode;
 import android.transition.Transition;
@@ -23,7 +26,14 @@ import android.view.ViewAnimationUtils;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.ImageButton;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 
 import static android.hardware.Camera.open;
@@ -32,6 +42,7 @@ import static android.hardware.Camera.open;
 public class MainActivity extends Activity {
 
     private CardTouchListener mCardTouchListener;
+    private ClickListener fabListener;
     private Camera mCamera;
     private CameraView mCameraview;
     private CardView myCardView;
@@ -48,6 +59,7 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
 
         getWindow().requestFeature(Window.FEATURE_CONTENT_TRANSITIONS);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         Transition ts = new Explode();
         ts.setStartDelay(2000);
         ts.setDuration(5000);
@@ -57,12 +69,27 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
 
         myCardView = (CardView)findViewById(R.id.card_view);
-        mCardTouchListener = new CardTouchListener();
-        myCardView.setOnTouchListener(mCardTouchListener);
+        myCardView.setPadding(16, 16, 16, 16);
 
+        ImageButton fab = (ImageButton)findViewById(R.id.fab);
+        ClickListener fabListener = new ClickListener();
+        fab.setOnClickListener(fabListener);
 
         startCamera();
 
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mCamera.release();
+        mCamera =null;
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mCamera =null;
     }
 
     private void startCamera() {
@@ -71,7 +98,8 @@ public class MainActivity extends Activity {
 
             mCamera =  getCameraInstance();
             mCameraview = new CameraView(this, mCamera);
-            mCameraview.setVisibility(View.INVISIBLE);
+
+            //mCameraview.setVisibility(View.INVISIBLE);
             configureCamera(getResources().getConfiguration());
             myCardView.addView(mCameraview);
 
@@ -138,20 +166,87 @@ public class MainActivity extends Activity {
             Animator anim = ViewAnimationUtils.createCircularReveal(myCardView,cx,cy,0,finalRadius);
 
             anim.start();
-            myCardV.setBackgroundColor(Color.RED);
-
             anim.addListener(new AnimatorListenerAdapter() {
-
 
                 @Override
                 public void onAnimationEnd(Animator animation) {
                     super.onAnimationEnd(animation);
                     mCameraview.setVisibility(View.VISIBLE);
+
                 }
             });
 
             return false;
         }
+    }
+
+    @SuppressWarnings("deprecation")
+    private class ClickListener implements View.OnClickListener {
+
+        @Override
+        public void onClick(View v) {
+            // take picture here, store temporarily on sdcard
+            // process the image and then delete it
+            Camera.PictureCallback jpegCallBack = new Camera.PictureCallback() {
+                @Override
+                public void onPictureTaken(byte[] data, Camera camera) {
+
+                    savePicture(data);
+                   
+                    sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE,
+                            Uri.parse("file://"+ Environment.getExternalStorageDirectory())));
+                    camera.startPreview();
+                }
+            };
+
+            mCamera.takePicture(null, null, jpegCallBack);
+
+        }
+
+
+    }
+
+    private void savePicture(byte[] data) {
+
+        File picture = getOutputMediaFile();
+
+        if(picture != null) {
+            try {
+                FileOutputStream fos = new FileOutputStream(picture);
+                fos.write(data);
+                fos.close();
+
+            }catch(FileNotFoundException e) {
+                Log.i(TAG, "Image file not found." + e.getMessage());
+            }catch (IOException e) {
+                Log.i(TAG, "Unable to write to file." + e.getMessage());
+            }
+        }
+        else {
+            Log.i(TAG, "Something went wrong. Picture was null");
+        }
+    }
+
+    private File getOutputMediaFile() {
+
+        File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
+                                        "LinkShareApp");
+        if(!mediaStorageDir.exists()) {
+            if(!mediaStorageDir.mkdirs()) {
+                Log.i(TAG,"Failed to create DIR");
+                return null;
+            }
+        }
+
+        // Create a media file name
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss")
+                .format(new Date());
+        File mediaFile;
+        mediaFile = new File(mediaStorageDir.getPath() + File.separator
+                + "IMG_" + timeStamp + ".jpg");
+
+        return mediaFile;
+
     }
 
     @SuppressWarnings("deprecation")
@@ -174,8 +269,8 @@ public class MainActivity extends Activity {
 
             Camera.Parameters cameraParams = mCamera.getParameters();
             cameraParams.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
-            cameraParams.setPreviewSize(720,480);
-            
+            cameraParams.setPreviewSize(720, 480);
+
             mCamera.setParameters(cameraParams);
 
             float aspect = (float) previewSize.width / previewSize.height;
@@ -184,9 +279,6 @@ public class MainActivity extends Activity {
                 Log.i(MainActivity.TAG, "size: " + supportedSize.width + "x" + supportedSize.height);
 
             }
-
-
-
             ViewGroup.LayoutParams cameraHolderParams = myCardView.getLayoutParams();
 
             if(configuration.orientation == Configuration.ORIENTATION_PORTRAIT) {
@@ -197,10 +289,6 @@ public class MainActivity extends Activity {
                 cameraHolderParams.height = (int) (width / aspect);
                 cameraHolderParams.width = width;
             }
-
-
-
-           // mCameraview.setLayoutParams(cameraHolderParams);
 
             return true;
         }
